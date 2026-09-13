@@ -51,6 +51,17 @@ require(new Set(guideMarkers).size === guideMarkers.length, 'Guide v1.1 topic ma
 for (const marker of requiredV11Topics) require(guideMarkers.includes(marker), `Guide is missing required v1.1 topic marker ${marker}.`)
 for (const marker of guideMarkers) require((requiredV11Topics as readonly string[]).includes(marker), `Guide has unknown v1.1 topic marker ${marker}.`)
 for (const domain of domains) require(guide.some((section) => section.domain === domain.id), `Guide is missing domain ${domain.id}.`)
+for (const section of guide) {
+  require(section.decisions.length >= 1, `${section.domain} guide must include a decision table.`)
+  require(section.decisions.length <= 8, `${section.domain} decision table must stay within 8 rows; found ${section.decisions.length}.`)
+  for (const row of section.decisions) {
+    require(Boolean(row.if.trim()) && Boolean(row.use.trim()) && Boolean(row.notThis.trim()), `${section.domain} has a decision row with an empty column.`)
+  }
+  for (const concept of section.concepts) {
+    require(Boolean(concept.body.trim()), `${section.domain} concept "${concept.title}" needs a body.`)
+    require(Boolean(concept.example?.trim()), `${section.domain} concept "${concept.title}" needs an example.`)
+  }
+}
 
 const expectedDates = Array.from({ length: 16 }, (_, offset) => {
   const date = new Date('2026-09-12T12:00:00Z'); date.setUTCDate(date.getUTCDate() + offset); return date.toISOString().slice(0, 10)

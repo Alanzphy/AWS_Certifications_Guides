@@ -59,12 +59,27 @@ export interface Progress {
   attempts: Attempt[]
 }
 
+export interface GuideConcept {
+  title: string
+  body: string
+  cue?: string
+  notThis?: string
+  example?: string
+}
+
+export interface GuideDecision {
+  if: string
+  use: string
+  notThis: string
+}
+
 export interface GuideSection {
   domain: DomainId
   summary: string
   markers: string[]
   v11: string[]
-  concepts: { title: string; body: string; cue?: string; notThis?: string }[]
+  concepts: GuideConcept[]
+  decisions: GuideDecision[]
 }
 
 export interface StudyDay {

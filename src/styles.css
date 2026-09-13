@@ -71,6 +71,9 @@ main { width: min(1180px, calc(100% - 2rem)); margin: 0 auto; padding: clamp(2re
 .cue, .not-this { padding: .75rem; border-radius: .5rem; font-size: .9rem; color: #dbe6f3; }
 .cue { background: #163442; border-left: 3px solid var(--cyan); }
 .not-this { background: #3b242a; border-left: 3px solid var(--red); }
+.example { padding: .75rem; border-radius: .5rem; font-size: .9rem; color: #dbe6f3; background: #17282a; border-left: 3px solid var(--green); }
+.decision-table { margin: 1rem 0; }
+.decision-table caption { text-align: left; color: var(--muted); font-size: .78rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding-bottom: .5rem; }
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; }
 th, td { text-align: left; vertical-align: top; padding: .8rem; border-bottom: 1px solid var(--line); }
