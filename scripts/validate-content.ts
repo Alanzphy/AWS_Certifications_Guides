@@ -1,5 +1,5 @@
 import { guide } from '../src/certifications/aif-c01/guide.ts'
-import { aifPracticeModule, domains, examAllocation, examFacts, practiceScoreDisclaimer, requiredV11Topics } from '../src/certifications/aif-c01/module.ts'
+import { aifPracticeModule, domains, examAllocation, examFacts, glossary, practiceScoreDisclaimer, requiredV11Topics, serviceMap } from '../src/certifications/aif-c01/module.ts'
 import { resources, studyPlan } from '../src/certifications/aif-c01/plan.ts'
 import { diagnosticQuestionIds, questions } from '../src/certifications/aif-c01/questions.ts'
 
@@ -139,6 +139,17 @@ for (const resource of resources) {
   require(Boolean(resource.duration && resource.outcome), `${resource.id} needs duration and expected outcome metadata.`)
 }
 
+require(glossary.length >= 50, `Glossary has ${glossary.length} entries; expected at least 50.`)
+require(new Set(glossary.map(([term]) => term)).size === glossary.length, 'Glossary terms must be unique.')
+for (const [term, definition] of glossary) {
+  require(Boolean(term.trim()) && Boolean(definition.trim()), `Glossary entry "${term}" needs a non-empty term and definition.`)
+}
+require(serviceMap.length >= 20, `Service map has ${serviceMap.length} rows; expected at least 20.`)
+for (const row of serviceMap) {
+  require(row.length === 3 && row.every((cell) => Boolean(cell.trim())), 'Service map rows must contain exactly three non-empty columns.')
+}
+require(new Set(serviceMap.map((row) => row[1])).size === serviceMap.length, 'Service map service names must be unique.')
+
 const countBy = (key: 'type' | 'domain') => Object.fromEntries([...new Set(questions.map((question) => question[key]))].sort().map((value) => [value, questions.filter((question) => question[key] === value).length]))
 if (errors.length) {
   console.error(errors.map((error) => `- ${error}`).join('\n'))
@@ -147,4 +158,4 @@ if (errors.length) {
 console.log(`Validated ${questions.length} original questions.`)
 console.log(`By type: ${JSON.stringify(countBy('type'))}`)
 console.log(`By domain: ${JSON.stringify(countBy('domain'))}`)
-console.log(`Validated exam metadata, ${requiredV11Topics.length} v1.1 markers, ${studyPlan.length} budgeted study days, ${scheduledMinutes} planned minutes, and ${resources.length} linked resources.`)
+console.log(`Validated exam metadata, ${requiredV11Topics.length} v1.1 markers, ${studyPlan.length} budgeted study days, ${scheduledMinutes} planned minutes, ${resources.length} linked resources, ${glossary.length} glossary entries, and ${serviceMap.length} service map rows.`)
