@@ -42,6 +42,11 @@ export function domainResults(domains: Domain[], questions: Question[], answers:
   )
 }
 
+export function selectDomainQuestions(bank: Question[], domainId: DomainId, seed = Date.now()) {
+  const scoped = bank.filter((question) => question.domain === domainId)
+  return selectQuestions(scoped, scoped.length, seed)
+}
+
 export function selectQuestions(bank: Question[], count: number, seed = Date.now()) {
   const shuffled = [...bank]
   let state = seed >>> 0

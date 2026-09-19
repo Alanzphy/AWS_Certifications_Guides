@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { domainResults, isQuestionCorrect, moveSequenceItem, navigateQuestion, practicePercent, sameAnswer, sameSequence, selectExamQuestions, selectQuestions, selectRetryQuestions, tickTimer } from './scoring'
+import { domainResults, isQuestionCorrect, moveSequenceItem, navigateQuestion, practicePercent, sameAnswer, sameSequence, selectDomainQuestions, selectExamQuestions, selectQuestions, selectRetryQuestions, tickTimer } from './scoring'
 import type { Attempt, Domain, Question } from './types'
 
 const questions = [
@@ -35,6 +35,13 @@ describe('practice scoring', () => {
     expect(exam).toHaveLength(65)
     expect(exam.filter((question) => question.domain === 'CORE')).toHaveLength(13)
     expect(exam.filter((question) => question.domain === 'OPERATIONS')).toHaveLength(18)
+  })
+
+  it('selects every question in one domain and no others', () => {
+    const selected = selectDomainQuestions(questions, 'FOUNDATIONS', 7)
+    expect(selected).toHaveLength(1)
+    expect(selected.every((question) => question.domain === 'FOUNDATIONS')).toBe(true)
+    expect(selectDomainQuestions(questions, 'MISSING', 7)).toEqual([])
   })
 
   it('uses the explicitly supplied attempt for retry without falling back to older history', () => {

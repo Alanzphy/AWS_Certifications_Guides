@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { domainResults, isQuestionCorrect, moveSequenceItem, navigateQuestion, practicePercent, selectExamQuestions, selectQuestions, selectRetryQuestions, tickTimer } from '../core/scoring'
+import { domainResults, isQuestionCorrect, moveSequenceItem, navigateQuestion, practicePercent, selectDomainQuestions, selectExamQuestions, selectQuestions, selectRetryQuestions, tickTimer } from '../core/scoring'
 import type { Attempt, AttemptAnswer, CertificationPracticeModule, Progress, Question } from '../core/types'
 
 type Mode = Attempt['mode']
@@ -47,11 +47,12 @@ export function Practice({ certification, progress, setProgress }: { certificati
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remaining])
 
-  const start = (mode: Mode, retryAttempt?: Attempt) => {
+  const start = (mode: Mode, retryAttempt?: Attempt, domainId?: string) => {
     let items: Question[]
     if (mode === 'diagnostic') items = certification.diagnosticQuestionIds.map((id) => certification.questions.find((question) => question.id === id)!).filter(Boolean)
     else if (mode === 'exam') items = selectExamQuestions(certification.questions, certification.exam.allocation)
     else if (mode === 'retry') items = selectRetryQuestions(certification.questions, retryAttempt ?? progress.attempts.at(-1))
+    else if (domainId) items = selectDomainQuestions(certification.questions, domainId)
     else items = selectQuestions(certification.questions, 20)
     if (!items.length) return
     setSession({ mode, items, startedAt: new Date().toISOString() }); setAnswers({}); setDrafts({}); setIndex(0); setFlags([]); setConfused({}); setComplete(null); setRemaining(certification.exam.minutes * 60)
@@ -73,7 +74,7 @@ export function Practice({ certification, progress, setProgress }: { certificati
 
   const latestAttempt = progress.attempts.at(-1)
   const latestRetryCount = selectRetryQuestions(certification.questions, latestAttempt).length
-  if (!session) return <section className="panel"><div className="section-heading"><div><p className="eyebrow">Original practice bank</p><h2>Choose a focused practice mode</h2></div><span className="count-badge">{certification.questions.length} questions</span></div><p className="callout">{certification.practiceScoreDisclaimer}</p><div className="mode-grid"><button className="mode-card" onClick={() => start('diagnostic')}><strong>Optional app diagnostic</strong><span>{certification.diagnosticQuestionIds.length} questions · not a required calendar block</span></button><button className="mode-card" onClick={() => start('study')}><strong>Study set</strong><span>20 mixed questions · explanations</span></button><button className="mode-card" onClick={() => start('exam')}><strong>Timed exam</strong><span>{certification.exam.questionCount} questions · {certification.exam.minutes} minutes</span></button><button className="mode-card" onClick={() => start('retry', latestAttempt)} disabled={!latestRetryCount}><strong>Retry missed or confused</strong><span>Adaptive review from the latest attempt</span></button></div><p className="source-note">These are independent educational questions, not real exam questions or exam dumps.</p></section>
+  if (!session) return <section className="panel"><div className="section-heading"><div><p className="eyebrow">Original practice bank</p><h2>Choose a focused practice mode</h2></div><span className="count-badge">{certification.questions.length} questions</span></div><p className="callout">{certification.practiceScoreDisclaimer}</p><div className="mode-grid"><button className="mode-card" onClick={() => start('diagnostic')}><strong>Optional app diagnostic</strong><span>{certification.diagnosticQuestionIds.length} questions · not a required calendar block</span></button><button className="mode-card" onClick={() => start('study')}><strong>Study set</strong><span>20 mixed questions · explanations</span></button><button className="mode-card" onClick={() => start('exam')}><strong>Timed exam</strong><span>{certification.exam.questionCount} questions · {certification.exam.minutes} minutes</span></button><button className="mode-card" onClick={() => start('retry', latestAttempt)} disabled={!latestRetryCount}><strong>Retry missed or confused</strong><span>Adaptive review from the latest attempt</span></button></div><div className="section-heading"><div><p className="eyebrow">Study by domain</p><h2>All questions in one blueprint area</h2></div></div><div className="mode-grid">{certification.domains.map((domain) => { const count = certification.questions.filter((question) => question.domain === domain.id).length; return count ? <button className="mode-card" key={domain.id} onClick={() => start('study', undefined, domain.id)}><strong>{domain.id} · {domain.title}</strong><span>{count} questions · study explanations</span></button> : null })}</div><p className="source-note">These are independent educational questions, not real exam questions or exam dumps.</p></section>
 
   if (complete) {
     const results = domainResults(certification.domains, session.items, complete.answers)
