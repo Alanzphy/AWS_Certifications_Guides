@@ -8,6 +8,20 @@ const require = (condition: boolean, message: string) => { if (!condition) error
 const sameEntries = (actual: Record<string, number>, expected: Record<string, number>) =>
   JSON.stringify(Object.entries(actual).sort()) === JSON.stringify(Object.entries(expected).sort())
 
+// The public v1.1 guide publishes task statements and objective descriptions,
+// but does not number every objective. The bank's final segment is therefore
+// a local reference, not an AWS-issued objective number.
+const officialTaskStatements: Record<string, string> = {
+  D1: 'Explain basic AI concepts and terminologies|Identify practical use cases for AI|Describe the AI/ML development lifecycle',
+  D2: 'Explain the basic concepts of generative AI|Understand the capabilities and limitations of GenAI for solving business problems|Describe AWS infrastructure and technologies for building GenAI applications',
+  D3: 'Describe design considerations for applications that use foundation models|Choose effective prompt engineering techniques|Describe the training and fine-tuning process for FMs|Describe methods to evaluate FM performance',
+  D4: 'Explain the development of AI systems that are responsible|Recognize the importance of transparent and explainable models',
+  D5: 'Explain methods to secure AI systems|Recognize governance and compliance regulations for AI systems',
+}
+const objectiveTaskById = Object.fromEntries(domains.flatMap((domain) =>
+  officialTaskStatements[domain.id].split('|').map((statement, index) => [`${domain.id}.${index + 1}`, statement]),
+))
+
 require(aifPracticeModule.code === 'AIF-C01', 'Certification metadata must identify AIF-C01.')
 require(examFacts.version === '1.1', 'Exam metadata must identify guide version 1.1.')
 require(examFacts.publicationDate === '2026-04-30', 'Exam guide v1.1 publication date must be 2026-04-30.')
@@ -28,7 +42,14 @@ for (const id of diagnosticQuestionIds) require(ids.has(id), `Diagnostic referen
 const domainIds = new Set(domains.map((domain) => domain.id))
 for (const question of questions) {
   require(domainIds.has(question.domain), `${question.id} references unknown domain ${question.domain}.`)
-  require(/^[1-5]\.\d+\.\d+$/.test(question.objective), `${question.id} objective must use the N.N.N format.`)
+  const objectiveMatch = /^([1-5])\.(\d+)\.(\d+)$/.exec(question.objective)
+  require(Boolean(objectiveMatch), `${question.id} objective must use the bank reference N.N.N format.`)
+  if (objectiveMatch) {
+    const [domainNumber, taskNumber] = objectiveMatch.slice(1, 3)
+    const taskId = `D${domainNumber}.${taskNumber}`
+    require(question.domain === `D${domainNumber}`, `${question.id} objective ${question.objective} belongs to ${taskId}, not ${question.domain}.`)
+    require(Boolean(objectiveTaskById[taskId]), `${question.id} objective ${question.objective} references no official v1.1 task statement.`)
+  }
   require(question.explanation.length >= 45, `${question.id} needs a substantive explanation.`)
   require(new Set(question.options).size === question.options.length, `${question.id} repeats an option.`)
   require(question.correct.every((answer) => question.options.includes(answer)), `${question.id} has a correct answer outside its options.`)
