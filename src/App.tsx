@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Practice } from './components/Practice'
 import { loadProgress, saveProgress } from './core/progress'
+import { readRoute, routeHref, views } from './core/navigation'
+import type { Certification, View } from './core/navigation'
 import type { CertificationPracticeModule, GuideSection, OfficialResource, Progress, Resource, StudyDay, StudyMilestone } from './core/types'
 import { guide as aifGuide } from './certifications/aif-c01/guide'
 import { aifPracticeModule, azureTransfers, examFacts as aifFacts, glossary as aifGlossary, serviceMap as aifServiceMap } from './certifications/aif-c01/module'
@@ -15,8 +17,6 @@ import { scPracticeModule, examFacts as scFacts, glossary as scGlossary, service
 import { guide as scGuide } from './certifications/sc-900/guide'
 import { resources as scResources, studyPlan as scPlan } from './certifications/sc-900/plan'
 
-type View = 'catalog' | 'dashboard' | 'guide' | 'plan' | 'practice' | 'progress'
-type Certification = 'AIF-C01' | 'CLF-C02' | 'AI-103' | 'SC-900'
 
 type CertificationContent = {
   title: string
@@ -54,47 +54,86 @@ const certifications: Record<Certification, CertificationContent> = {
   },
 }
 
+const viewLabels: Record<View, string> = {
+  catalog: 'Certifications', dashboard: 'Dashboard', guide: 'Guide',
+  plan: 'Plan', practice: 'Practice', progress: 'Progress',
+}
+
 const planKey = (item: StudyDay | StudyMilestone) => 'date' in item ? item.date : item.id
 
 export default function App() {
-  const [view, setView] = useState<View>('catalog')
-  const [certification, setCertification] = useState<Certification>('CLF-C02')
-  const [progress, setProgress] = useState<Progress>(() => loadProgress('CLF-C02'))
+  const [current, setCurrent] = useState(() => {
+    const route = readRoute(window.location.hash)
+    return { route, progress: loadProgress(route.certification) }
+  })
+  const { view, certification } = current.route
+  const progress = current.progress
+  const setProgress: React.Dispatch<React.SetStateAction<Progress>> = (update) => {
+    setCurrent((previous) => ({
+      ...previous,
+      progress: typeof update === 'function' ? update(previous.progress) : update,
+    }))
+  }
   const [storageOk, setStorageOk] = useState(true)
   const content = certifications[certification]
   const { module, guide, plan, resources, glossary, serviceMap } = content
   const isAif = certification === 'AIF-C01'
   const isMicrosoft = certification === 'AI-103' || certification === 'SC-900'
   useEffect(() => setStorageOk(saveProgress(progress, certification)), [progress, certification])
+  useEffect(() => {
+    const handleRouteChange = () => {
+      const hash = window.location.hash
+      setCurrent((previous) => {
+        const route = readRoute(hash, previous.route.certification)
+        return {
+          route,
+          progress: route.certification === previous.route.certification ? previous.progress : loadProgress(route.certification),
+        }
+      })
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+    window.addEventListener('hashchange', handleRouteChange)
+    return () => window.removeEventListener('hashchange', handleRouteChange)
+  }, [])
+  useEffect(() => {
+    document.title = view === 'catalog' ? 'Certifications · Study Lab' : `${viewLabels[view]} · ${certification} · Study Lab`
+  }, [view, certification])
 
   const totalMinutes = plan.flatMap((item) => item.activities).reduce((sum, activity) => sum + activity.durationMinutes, 0)
   const plannedDuration = `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`
   const completedCount = plan.filter((item) => progress.completedPlanItems.includes(planKey(item))).length
   const latest = progress.attempts.at(-1)
   const missedTopics = useMemo(() => new Set(progress.attempts.flatMap((attempt) => attempt.questionIds.filter((id) => !attempt.answers[id]?.correct || attempt.answers[id]?.confused))).size, [progress.attempts])
-  const navigate = (next: View) => { setView(next); window.scrollTo({ top: 0, behavior: 'smooth' }) }
-  const selectCertification = (next: Certification) => { setCertification(next); setProgress(loadProgress(next)); navigate('dashboard') }
   const togglePlan = (key: string) => setProgress((current) => ({ ...current, completedPlanItems: current.completedPlanItems.includes(key) ? current.completedPlanItems.filter((item) => item !== key) : [...current.completedPlanItems, key] }))
 
   return <div className="app-shell">
-    <header><div className="brand"><span className="brand-mark">LAB</span><div><strong>Certification Study Lab</strong><small>Learn distinctions. Correct errors. Build confidence.</small></div></div><nav aria-label="Primary navigation">{(['catalog', 'dashboard', 'guide', 'plan', 'practice', 'progress'] as View[]).map((item) => <button key={item} className={view === item ? 'active' : ''} onClick={() => navigate(item)}>{item === 'catalog' ? 'Certifications' : item[0].toUpperCase() + item.slice(1)}</button>)}</nav></header>
+    <a className="skip-link" href="#main" onClick={(event) => { event.preventDefault(); document.getElementById('main')?.focus() }}>Skip to main content</a>
+    <header><div className="brand"><span className="brand-mark">LAB</span><div><strong>Certification Study Lab</strong><small>{view === 'catalog' ? 'Learn distinctions. Correct errors. Build confidence.' : `${certification} · ${viewLabels[view]}`}</small></div></div><nav aria-label="Primary navigation">{views.map((item) => <a key={item} href={routeHref(certification, item)} className={view === item ? 'active' : ''} aria-current={view === item ? 'page' : undefined}>{viewLabels[item]}</a>)}</nav></header>
     {!storageOk && <div className="storage-warning" role="alert">Progress could not be saved. Your browser may be blocking storage or have no available space.</div>}
-    <main id="main">
+    <main id="main" tabIndex={-1}>
+      <nav className="breadcrumbs" aria-label="Breadcrumb">
+        {view === 'catalog' ? <span aria-current="page">Certifications</span> : <>
+          <a href={routeHref(certification, 'catalog')}>Certifications</a><span aria-hidden="true">/</span>
+          {view === 'dashboard' ? <span aria-current="page">{certification}</span> : <>
+            <a href={routeHref(certification, 'dashboard')}>{certification}</a><span aria-hidden="true">/</span><span aria-current="page">{viewLabels[view]}</span>
+          </>}
+        </>}
+      </nav>
       {view === 'catalog' && <>
         <section className="hero"><div className="hero-copy"><p className="eyebrow">Public · local-first · no account</p><h1>Study the decision, not just the service name.</h1><p>Build cloud, AI and security knowledge with concise guides, original practice, error-driven correction, and hands-on work.</p></div>
           <div className="catalog-grid">{(Object.entries(certifications) as [Certification, CertificationContent][]).map(([code, entry]) => {
             const cardProgress = code === certification ? progress : loadProgress(code)
             const count = entry.plan.filter((item) => cardProgress.completedPlanItems.includes(planKey(item))).length
-            return <button className="cert-card active-cert" key={code} onClick={() => selectCertification(code)}><span className="status-pill">Available</span><h2>{entry.title}</h2><p>{code} · {entry.cardDetail}</p><small>{count}/{entry.plan.length} study plan items complete</small></button>
+            return <a className="cert-card active-cert" key={code} href={routeHref(code, 'dashboard')}><span className="status-pill">Available</span><h2>{entry.title}</h2><p>{code} · {entry.cardDetail}</p><small>{count}/{entry.plan.length} study plan items complete</small></a>
           })}</div>
         </section>
         <StudyRoadmap />
       </>}
       {view === 'dashboard' && <>
-        <section className="dashboard-hero"><div><p className="eyebrow">{certification} · {isAif ? `Exam guide v${aifFacts.version} · Published ${aifFacts.publicationDate}` : 'Official exam guide'}</p><h1>{content.title}</h1><p>{content.examDetail} · <strong>{plannedDuration} suggested study time</strong></p></div><button className="primary" onClick={() => navigate('practice')}>{progress.attempts.length ? 'Continue practice' : 'Start optional app diagnostic'}</button></section>
+        <section className="dashboard-hero"><div><p className="eyebrow">{certification} · {isAif ? `Exam guide v${aifFacts.version} · Published ${aifFacts.publicationDate}` : 'Official exam guide'}</p><h1>{content.title}</h1><p>{content.examDetail} · <strong>{plannedDuration} suggested study time</strong></p></div><a className="primary" href={routeHref(certification, 'practice')}>{progress.attempts.length ? 'Continue practice' : 'Start optional app diagnostic'}</a></section>
         <section className="fact-grid">{content.facts.map(([label, value]) => <article key={label}><span>{label}</span><strong>{value}</strong></article>)}</section><p className="callout">{module.practiceScoreDisclaimer}</p>
         <section className="panel"><div className="section-heading"><div><p className="eyebrow">Exam blueprint</p><h2>Spend time where the exam does</h2></div></div>{isMicrosoft && <p>Microsoft publishes ranges, not exact domain percentages. The app's question allocation is only an illustrative sample.</p>}<div className="domain-list">{module.domains.map((domain) => <article key={domain.id}><div className={domain.weightLabel ? 'weight weight-range' : 'weight'} style={{ '--weight': `${domain.weight}%` } as React.CSSProperties}><strong>{domain.weightLabel ?? `${domain.weight}%`}</strong></div><div><h3>{domain.id} · {domain.title}</h3><p>{domain.objectives.join(' · ')}</p></div></article>)}</div></section>
-        <section className="quick-grid"><button onClick={() => navigate('guide')}><strong>Read the concise guide</strong><span>Domains, decisions, and service distinctions</span></button><button onClick={() => navigate('plan')}><strong>Follow the study route</strong><span>{isAif ? 'Existing dated plan' : 'Flexible milestones'}</span></button><button onClick={() => navigate('progress')}><strong>Review weak points</strong><span>{missedTopics} missed or confused topics in history</span></button></section>
+        <section className="quick-grid"><a href={routeHref(certification, 'guide')}><strong>Read the concise guide</strong><span>Domains, decisions, and service distinctions</span></a><a href={routeHref(certification, 'plan')}><strong>Follow the study route</strong><span>{isAif ? 'Existing dated plan' : 'Flexible milestones'}</span></a><a href={routeHref(certification, 'progress')}><strong>Review weak points</strong><span>{missedTopics} missed or confused topics in history</span></a></section>
       </>}
       {view === 'guide' && <><section className="page-title"><p className="eyebrow">{certification} · concise guide</p><h1>Recognize the requirement, then choose the boundary.</h1><p>Use this guide to correct errors after practice. {isAif ? 'v1.1 markers highlight materially changed scope.' : 'The official exam guide remains the source of truth.'}</p></section>{guide.map((section) => { const domain = module.domains.find((item) => item.id === section.domain)!; return <section className="panel guide-domain" key={section.domain}><div className="domain-title"><span>{domain.weightLabel ?? `${domain.weight}%`}</span><div><p className="eyebrow">{section.domain}</p><h2>{domain.title}</h2></div></div><p className="lead">{section.summary}</p>{isAif && <div className="v11"><strong>What changed in v1.1</strong><ul>{section.v11.map((item) => <li key={item}>{item}</li>)}</ul></div>}<div className="table-wrap decision-table"><table><caption>{domain.title} decision guide</caption><thead><tr><th>If the question says…</th><th>Use</th><th>Not this</th></tr></thead><tbody>{section.decisions.map((row) => <tr key={row.if}><td>{row.if}</td><td>{row.use}</td><td>{row.notThis}</td></tr>)}</tbody></table></div><div className="concept-grid">{section.concepts.map((concept) => <article key={concept.title}><h3>{concept.title}</h3><p>{concept.body}</p>{concept.example && <p className="example"><strong>Example:</strong> {concept.example}</p>}{concept.cue && <p className="cue"><strong>If the question says… think…</strong> {concept.cue}</p>}</article>)}</div></section>})}<ReferenceTables serviceMap={serviceMap} glossary={glossary} azureTransfers={isAif ? azureTransfers : undefined} provider={isMicrosoft ? 'Microsoft' : 'AWS'} /></>}
       {view === 'plan' && <section><div className="page-title"><p className="eyebrow">{isAif ? `September 12–27, 2026 · ${plannedDuration} planned` : `${certification} · flexible milestones · ${plannedDuration} suggested`}</p><h1>{isAif ? 'An error-driven study plan' : `A flexible ${certification} study route`}</h1><p>{isAif ? 'Keep a concise guide, practice questions, correct the guide from errors, and finish on weak points rather than passive rereading.' : 'Move through the milestones at your own pace. Suggested minutes are guidance, not calendar commitments.'}</p>{isAif && <p className="callout">The AWS Skill Builder official 20-question set is the required calendar baseline on September 12. The app’s original diagnostic remains an optional extra.</p>}</div>
@@ -107,8 +146,8 @@ export default function App() {
         })}</div>
       </section>}
       {view === 'practice' && <Practice key={certification} certification={module} progress={progress} setProgress={setProgress} />}
-      {view === 'progress' && <section><div className="page-title"><p className="eyebrow">Stored locally for {certification}</p><h1>Progress and attempt history</h1><p>{completedCount}/{plan.length} plan items complete · {progress.attempts.length} attempts · {missedTopics} current review topics.</p></div>{latest ? <div className="history-list">{[...progress.attempts].reverse().map((attempt) => <article key={attempt.id}><div><strong>{attempt.mode}</strong><span>{new Date(attempt.completedAt).toLocaleString()}</span></div><strong>{attempt.practicePercent}%</strong><small>{Object.values(attempt.answers).filter((answer) => answer.correct).length}/{attempt.questionIds.length} correct · practice percentage</small></article>)}</div> : <div className="empty-state"><h2>No completed attempts yet</h2><p>The optional app diagnostic can create an adaptive weak-domain baseline.</p><button className="primary" onClick={() => navigate('practice')}>Open practice</button></div>}<details className="data-controls"><summary>Local data controls</summary><p>Only {certification} progress is cleared; progress for other certifications remains untouched.</p><button className="danger" onClick={() => { if (window.confirm(`Clear locally stored ${certification} study progress?`)) setProgress({ version: 1, attempts: [], completedPlanItems: [], resourceNotes: {} }) }}>Clear {certification} progress</button></details></section>}
-    </main><footer><p>Independent educational project. AWS and Microsoft names and trademarks belong to their respective owners. Not affiliated with or endorsed by AWS or Microsoft.</p><p>{module.questions.length} original {certification} questions · No exam dumps · Official provider documentation is the source of truth.</p><button onClick={() => navigate('catalog')}>Switch certification</button></footer>
+      {view === 'progress' && <section><div className="page-title"><p className="eyebrow">Stored locally for {certification}</p><h1>Progress and attempt history</h1><p>{completedCount}/{plan.length} plan items complete · {progress.attempts.length} attempts · {missedTopics} current review topics.</p></div>{latest ? <div className="history-list">{[...progress.attempts].reverse().map((attempt) => <article key={attempt.id}><div><strong>{attempt.mode}</strong><span>{new Date(attempt.completedAt).toLocaleString()}</span></div><strong>{attempt.practicePercent}%</strong><small>{Object.values(attempt.answers).filter((answer) => answer.correct).length}/{attempt.questionIds.length} correct · practice percentage</small></article>)}</div> : <div className="empty-state"><h2>No completed attempts yet</h2><p>The optional app diagnostic can create an adaptive weak-domain baseline.</p><a className="primary" href={routeHref(certification, 'practice')}>Open practice</a></div>}<details className="data-controls"><summary>Local data controls</summary><p>Only {certification} progress is cleared; progress for other certifications remains untouched.</p><button className="danger" onClick={() => { if (window.confirm(`Clear locally stored ${certification} study progress?`)) setProgress({ version: 1, attempts: [], completedPlanItems: [], resourceNotes: {} }) }}>Clear {certification} progress</button></details></section>}
+    </main><footer><p>Independent educational project. AWS and Microsoft names and trademarks belong to their respective owners. Not affiliated with or endorsed by AWS or Microsoft.</p><p>{module.questions.length} original {certification} questions · No exam dumps · Official provider documentation is the source of truth.</p><a className="switch-cert" href={routeHref(certification, 'catalog')}>Switch certification</a></footer>
   </div>
 }
 

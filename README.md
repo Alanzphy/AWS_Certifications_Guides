@@ -22,6 +22,10 @@ npm run dev
 
 The project uses React 19, TypeScript, and Vite 8. The implementation environment runs Node 24.20.0, which satisfies Vite 8's documented engine requirement, so no compatibility downgrade was needed.
 
+## Navigation
+
+Choose a certification, then use Dashboard, Guide, Plan, Practice, or Progress. The breadcrumb and highlighted navigation item show the current location. Section URLs are shareable and survive reloads and browser Back/Forward; for example, `#/ai-103/plan` opens the AI-103 study plan. Progress remains local to each browser and is not included in a shared link.
+
 ## Learning workflow
 
 The catalog and each flexible plan show an adjustable joint route: prioritize CLF-C02 through mid-November while beginning Python, Foundry and SC-900 identity; increase AI-103 RAG, agents, vision, language and extraction work and SC-900 security/compliance work later in November; complete timed practice and weak-point review before each December exam. If an exam is early in December, move its review earlier. No AWS exam date, exact Microsoft dates, or available study hours were supplied.
