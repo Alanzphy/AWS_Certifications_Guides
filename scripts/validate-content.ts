@@ -2,6 +2,16 @@ import { guide } from '../src/certifications/aif-c01/guide.ts'
 import { aifPracticeModule, domains, examAllocation, examFacts, glossary, practiceScoreDisclaimer, requiredV11Topics, serviceMap } from '../src/certifications/aif-c01/module.ts'
 import { resources, studyPlan } from '../src/certifications/aif-c01/plan.ts'
 import { diagnosticQuestionIds, questions } from '../src/certifications/aif-c01/questions.ts'
+import { clfPracticeModule, domains as clfDomains, examAllocation as clfAllocation, examFacts as clfFacts, glossary as clfGlossary, serviceMap as clfServiceMap, examGuideUrl, inScopeServicesUrl, certificationUrl } from '../src/certifications/clf-c02/module.ts'
+import { guide as clfGuide } from '../src/certifications/clf-c02/guide.ts'
+import { resources as clfResources, studyPlan as clfPlan } from '../src/certifications/clf-c02/plan.ts'
+import { diagnosticQuestionIds as clfDiagnosticIds, questions as clfQuestions } from '../src/certifications/clf-c02/questions.ts'
+import { aiPracticeModule, examFacts as aiFacts, glossary as aiGlossary, serviceMap as aiServiceMap } from '../src/certifications/ai-103/module.ts'
+import { guide as aiGuide } from '../src/certifications/ai-103/guide.ts'
+import { resources as aiResources, studyPlan as aiPlan } from '../src/certifications/ai-103/plan.ts'
+import { scPracticeModule, examFacts as scFacts, glossary as scGlossary, serviceMap as scServiceMap } from '../src/certifications/sc-900/module.ts'
+import { guide as scGuide } from '../src/certifications/sc-900/guide.ts'
+import { resources as scResources, studyPlan as scPlan } from '../src/certifications/sc-900/plan.ts'
 
 const errors: string[] = []
 const require = (condition: boolean, message: string) => { if (!condition) errors.push(message) }
@@ -160,6 +170,137 @@ for (const resource of resources) {
   require(Boolean(resource.duration && resource.outcome), `${resource.id} needs duration and expected outcome metadata.`)
 }
 
+// CLF-C02 remains an independent module: validate its published blueprint and
+// original bank without weakening the AIF-C01 invariants above.
+require(clfPracticeModule.code === 'CLF-C02', 'Certification metadata must identify CLF-C02.')
+require(clfFacts.questions === 65 && clfFacts.scored === 50 && clfFacts.unscored === 15 && clfFacts.minutes === 90, 'CLF-C02 exam facts must match the official guide.')
+require(clfFacts.scoreMinimum === 100 && clfFacts.scoreMaximum === 1000 && clfFacts.passingScore === 700, 'CLF-C02 scaled score facts are incomplete or incorrect.')
+require(JSON.stringify(clfFacts.formats) === JSON.stringify(['single', 'multiple']), 'CLF-C02 must use only multiple-choice and multiple-response formats.')
+require(clfDomains.length === 4 && sameEntries(Object.fromEntries(clfDomains.map((domain) => [domain.id, domain.weight])), { D1: 24, D2: 30, D3: 34, D4: 12 }), 'CLF-C02 domains and weights must match the official 24/30/34/12 blueprint.')
+require(clfDomains.reduce((sum, domain) => sum + domain.weight, 0) === 100, 'CLF-C02 domain weights must total 100%.')
+require(sameEntries(clfAllocation, { D1: 16, D2: 19, D3: 22, D4: 8 }), 'CLF-C02 practice allocation must use the declared approximate 16/19/22/8 sample.')
+require(Object.values(clfAllocation).reduce((sum, count) => sum + count, 0) === 65, 'CLF-C02 practice allocation must total 65.')
+require(clfPracticeModule.exam.questionCount === 65 && clfPracticeModule.exam.minutes === 90, 'CLF-C02 practice module must expose the 65-question/90-minute simulation.')
+require(clfPracticeModule.questions === clfQuestions && clfPracticeModule.diagnosticQuestionIds === clfDiagnosticIds, 'CLF-C02 practice module must expose its validated bank and diagnostic.')
+require(/not AWS scaled scores/i.test(clfPracticeModule.practiceScoreDisclaimer), 'CLF-C02 disclaimer must distinguish app percentages from AWS scaled scores.')
+const clfIds = new Set(clfQuestions.map((question) => question.id))
+const clfPrompts = clfQuestions.map((question) => question.prompt.trim().toLocaleLowerCase('en-US').replace(/\s+/g, ' '))
+require(clfQuestions.length >= 70, `CLF-C02 bank has ${clfQuestions.length}; expected at least 70.`)
+require(clfIds.size === clfQuestions.length, 'CLF-C02 question IDs must be unique.')
+require(new Set(clfPrompts).size === clfPrompts.length, 'CLF-C02 question prompts must be unique after normalization.')
+require(clfDiagnosticIds.length === 20 && new Set(clfDiagnosticIds).size === 20, 'CLF-C02 diagnostic must contain exactly 20 unique questions.')
+for (const id of clfDiagnosticIds) require(clfIds.has(id), `CLF-C02 diagnostic references missing question ${id}.`)
+const clfDomainIds = new Set(clfDomains.map((domain) => domain.id))
+const clfTaskCounts = { D1: 4, D2: 4, D3: 8, D4: 3 }
+for (const domain of clfDomains) require(domain.objectives.length === clfTaskCounts[domain.id as keyof typeof clfTaskCounts], `${domain.id} must list every official CLF-C02 task statement.`)
+for (const question of clfQuestions) {
+  require(clfDomainIds.has(question.domain), `${question.id} references unknown CLF-C02 domain ${question.domain}.`)
+  const match = /^(\d+)\.(\d+)$/.exec(question.objective)
+  require(Boolean(match), `${question.id} objective must use the CLF task-reference N.N format.`)
+  if (match) {
+    const domainNumber = Number(match[1])
+    const taskNumber = Number(match[2])
+    require(question.domain === `D${domainNumber}`, `${question.id} objective belongs to D${domainNumber}, not ${question.domain}.`)
+    require(taskNumber >= 1 && taskNumber <= clfTaskCounts[question.domain as keyof typeof clfTaskCounts], `${question.id} maps to no official CLF-C02 task statement.`)
+    require(Boolean(clfDomains.find((domain) => domain.id === question.domain)?.objectives[taskNumber - 1]), `${question.id} has no mapped domain task statement.`)
+  }
+  require(['single', 'multiple'].includes(question.type), `${question.id} uses a question type not allowed for CLF-C02.`)
+  require(question.prompt.trim().length >= 20, `${question.id} prompt needs a substantive scenario or decision.`)
+  require(question.explanation.length >= 45, `${question.id} needs a substantive explanation.`)
+  require(question.options.length >= (question.type === 'multiple' ? 5 : 4) && new Set(question.options).size === question.options.length, `${question.id} has too few or duplicate response options.`)
+  require(question.correct.every((answer) => question.options.includes(answer)), `${question.id} has a correct answer outside its options.`)
+  require(question.type !== 'single' || question.correct.length === 1, `${question.id} must have one correct answer.`)
+  require(question.type !== 'multiple' || question.correct.length >= 2, `${question.id} must have multiple correct answers.`)
+}
+for (const [domain, count] of Object.entries(clfAllocation)) require(clfQuestions.filter((question) => question.domain === domain).length >= count, `CLF-C02 bank cannot supply ${count} allocated questions for ${domain}.`)
+// The bank is curated practice content, not an official domain item count.
+// Allow a ±3 percentage-point deviation so reasonable bank-size changes do
+// not require exact counts while material sampling skew is still caught.
+const clfDistributionTolerance = 3
+for (const domain of clfDomains) {
+  const share = clfQuestions.filter((question) => question.domain === domain.id).length / clfQuestions.length * 100
+  require(Math.abs(share - domain.weight) <= clfDistributionTolerance,
+    `CLF-C02 ${domain.id} bank share ${share.toFixed(1)}% is more than ${clfDistributionTolerance} percentage points from its ${domain.weight}% official weight.`)
+}
+require(clfGuide.length === 4 && clfDomains.every((domain) => clfGuide.some((section) => section.domain === domain.id)), 'CLF-C02 guide must cover all four official domains.')
+for (const section of clfGuide) {
+  require(section.decisions.length > 0 && section.concepts.length > 0, `${section.domain} CLF-C02 guide needs decisions and concepts.`)
+  for (const row of section.decisions) require(Boolean(row.if.trim() && row.use.trim() && row.notThis.trim()), `${section.domain} has an incomplete decision row.`)
+  for (const concept of section.concepts) require(Boolean(concept.title.trim() && concept.body.trim() && concept.example?.trim()), `${section.domain} concept "${concept.title}" needs a description and example.`)
+}
+require(clfServiceMap.length >= 25, 'CLF-C02 service map needs at least 25 curated service distinctions.')
+for (const row of clfServiceMap) require(row.length === 3 && row.every((cell) => cell.trim()), 'CLF-C02 service map rows need three non-empty cells.')
+require(new Set(clfServiceMap.map((row) => row[1])).size === clfServiceMap.length, 'CLF-C02 service map services must be unique.')
+require(clfGlossary.length >= 20 && new Set(clfGlossary.map(([term]) => term)).size === clfGlossary.length, 'CLF-C02 glossary needs at least 20 unique terms.')
+for (const [term, definition] of clfGlossary) require(Boolean(term.trim() && definition.trim()), `CLF-C02 glossary entry "${term}" is incomplete.`)
+const expectedClfResources = [examGuideUrl, inScopeServicesUrl, certificationUrl]
+require(expectedClfResources.every((url) => clfResources.some((resource) => resource.url === url)), 'CLF-C02 official guide, service scope, and certification resources are required.')
+for (const resource of clfResources) require(/^https:\/\//.test(resource.url) && Boolean(resource.title && resource.outcome), `CLF-C02 resource ${resource.id} is incomplete.`)
+require(clfPlan.length >= 6, 'CLF-C02 date-free route needs at least six usable milestones.')
+const clfMilestoneIds = new Set<string>()
+for (const milestone of clfPlan) {
+  require(!('date' in milestone), `CLF-C02 milestone ${milestone.id} must not invent a date.`)
+  require(!clfMilestoneIds.has(milestone.id), `CLF-C02 milestone ID ${milestone.id} is duplicated.`)
+  clfMilestoneIds.add(milestone.id)
+  require(Boolean(milestone.title && milestone.focus && milestone.outcome && milestone.activities.length), `CLF-C02 milestone ${milestone.id} is incomplete.`)
+  for (const id of milestone.resourceIds) require(clfResources.some((resource) => resource.id === id), `CLF-C02 milestone ${milestone.id} references missing resource ${id}.`)
+  for (const activity of milestone.activities) require(activity.durationMinutes > 0, `CLF-C02 activity ${activity.id} needs a positive suggested duration.`)
+}
+
+// Microsoft publishes domain ranges; the simulator uses an illustrative allocation,
+// not a claimed official item count or a prediction of the scaled score.
+const microsoftModules = [
+  { module: aiPracticeModule, facts: aiFacts, guide: aiGuide, plan: aiPlan, resources: aiResources, glossary: aiGlossary, serviceMap: aiServiceMap, ranges: [[25, 30], [30, 35], [10, 15], [10, 15], [10, 15]], minutes: 120, simulation: 50, minimumBank: 70 },
+  { module: scPracticeModule, facts: scFacts, guide: scGuide, plan: scPlan, resources: scResources, glossary: scGlossary, serviceMap: scServiceMap, ranges: [[10, 15], [25, 30], [35, 40], [20, 25]], minutes: 45, simulation: 40, minimumBank: 55 },
+]
+for (const entry of microsoftModules) {
+  const { module, facts, guide: sections, plan, resources: links } = entry
+  const code = module.code
+  const ids = new Set(module.questions.map((question) => question.id))
+  const prompts = module.questions.map((question) => question.prompt.trim().toLocaleLowerCase('en-US').replace(/\s+/g, ' '))
+  const domainIds = new Set(module.domains.map((domain) => domain.id))
+  require(facts.minutes === entry.minutes && facts.passingScore === 700, `${code} official time or passing score is incorrect.`)
+  require(module.exam.minutes === entry.minutes && module.exam.questionCount === entry.simulation, `${code} simulation configuration is incorrect.`)
+  require(module.questions.length >= entry.minimumBank, `${code} needs at least ${entry.minimumBank} original questions.`)
+  require(ids.size === module.questions.length && new Set(prompts).size === prompts.length, `${code} has duplicate question IDs or prompts.`)
+  require(module.diagnosticQuestionIds.length === 20 && new Set(module.diagnosticQuestionIds).size === 20 && module.diagnosticQuestionIds.every((id) => ids.has(id)), `${code} diagnostic must reference 20 unique existing questions.`)
+  require(module.domains.length === entry.ranges.length && domainIds.size === entry.ranges.length, `${code} must contain all official domains exactly once.`)
+  require(module.domains.reduce((sum, domain) => sum + domain.weight, 0) === 100, `${code} practice weights must total 100%.`)
+  require(Object.values(module.exam.allocation).reduce((sum, count) => sum + count, 0) === module.exam.questionCount && Object.keys(module.exam.allocation).every((id) => domainIds.has(id)), `${code} simulation allocation must cover only its domains and total the simulation size.`)
+  for (const [index, domain] of module.domains.entries()) {
+    const [minimum, maximum] = entry.ranges[index] ?? []
+    const allocation = module.exam.allocation[domain.id] ?? 0
+    const share = allocation / module.exam.questionCount * 100
+    require(domain.weightLabel === `${minimum}–${maximum}%`, `${code} ${domain.id} must show the published range.`)
+    require(share >= minimum && share <= maximum, `${code} ${domain.id} practice allocation is outside the published range.`)
+    require(domain.objectives.length > 0 && module.questions.filter((question) => question.domain === domain.id).length >= allocation, `${code} ${domain.id} needs objectives and sufficient questions for its allocation.`)
+    if (code === 'AI-103') for (const objective of domain.objectives) {
+      const reference = objective.split(' ')[0]
+      require(module.questions.some((question) => question.domain === domain.id && question.objective === reference), `${code} ${domain.id} has no practice for local objective ${reference}.`)
+    }
+    require(module.diagnosticQuestionIds.some((id) => module.questions.some((question) => question.id === id && question.domain === domain.id)), `${code} diagnostic must cover ${domain.id}.`)
+  }
+  for (const question of module.questions) {
+    require(domainIds.has(question.domain) && Boolean(question.objective.trim()), `${code} ${question.id} needs a valid domain and objective.`)
+    if (code === 'AI-103') require(Boolean(module.domains.find((domain) => domain.id === question.domain)?.objectives.some((objective) => objective.startsWith(`${question.objective} `))), `${code} ${question.id} references an unknown local objective.`)
+    require(question.prompt.trim().length >= 20 && question.explanation.trim().length >= 40, `${code} ${question.id} needs a substantive prompt and explanation.`)
+    require(['single', 'multiple'].includes(question.type) && question.options.length >= 4 && new Set(question.options).size === question.options.length, `${code} ${question.id} needs a supported choice format and distinct options.`)
+    require((question.type === 'single' ? question.correct.length === 1 : question.correct.length >= 2) && question.correct.every((answer) => question.options.includes(answer)), `${code} ${question.id} must identify valid correct choices.`)
+  }
+  require(sections.length === module.domains.length && module.domains.every((domain) => sections.some((section) => section.domain === domain.id)), `${code} guide must cover every domain.`)
+  for (const section of sections) require(Boolean(section.summary && section.decisions.length && section.concepts.length), `${code} ${section.domain} guide needs a summary, decisions, and concepts.`)
+  require(entry.serviceMap.length >= 10 && entry.serviceMap.every((row) => row.length === 3 && row.every((cell) => cell.trim())), `${code} needs a useful three-column service map.`)
+  require(entry.glossary.length >= 10 && entry.glossary.every(([term, definition]) => term.trim() && definition.trim()), `${code} needs a useful glossary.`)
+  require(links.length >= 3 && links.every((resource) => resource.kind === 'Official Microsoft' && /^https:\/\//.test(resource.url) && resource.title && resource.outcome), `${code} needs official Microsoft resources.`)
+  require(plan.length >= 6 && new Set(plan.map((milestone) => milestone.id)).size === plan.length, `${code} needs at least six uniquely identified milestones.`)
+  for (const milestone of plan) {
+    require(!('date' in milestone) && Boolean(milestone.title && milestone.focus && milestone.outcome && milestone.activities.length), `${code} milestone ${milestone.id} must be complete and undated.`)
+    require(milestone.resourceIds.every((id) => links.some((resource) => resource.id === id)), `${code} milestone ${milestone.id} references a missing resource.`)
+    require(milestone.activities.every((activity) => activity.durationMinutes > 0), `${code} milestone ${milestone.id} has an invalid activity duration.`)
+  }
+  require(plan.some((milestone) => milestone.activities.some((activity) => activity.type === 'full-exam')), `${code} plan needs a timed practice simulation.`)
+}
+
 require(glossary.length >= 50, `Glossary has ${glossary.length} entries; expected at least 50.`)
 require(new Set(glossary.map(([term]) => term)).size === glossary.length, 'Glossary terms must be unique.')
 for (const [term, definition] of glossary) {
@@ -171,12 +312,17 @@ for (const row of serviceMap) {
 }
 require(new Set(serviceMap.map((row) => row[1])).size === serviceMap.length, 'Service map service names must be unique.')
 
-const countBy = (key: 'type' | 'domain') => Object.fromEntries([...new Set(questions.map((question) => question[key]))].sort().map((value) => [value, questions.filter((question) => question[key] === value).length]))
+const countBy = (bank: typeof questions) => (key: 'type' | 'domain') => Object.fromEntries([...new Set(bank.map((question) => question[key]))].sort().map((value) => [value, bank.filter((question) => question[key] === value).length]))
 if (errors.length) {
   console.error(errors.map((error) => `- ${error}`).join('\n'))
   process.exit(1)
 }
 console.log(`Validated ${questions.length} original questions.`)
-console.log(`By type: ${JSON.stringify(countBy('type'))}`)
-console.log(`By domain: ${JSON.stringify(countBy('domain'))}`)
+console.log(`AIF-C01 by type: ${JSON.stringify(countBy(questions)('type'))}`)
+console.log(`AIF-C01 by domain: ${JSON.stringify(countBy(questions)('domain'))}`)
+console.log(`CLF-C02: ${clfQuestions.length} original questions.`)
+console.log(`CLF-C02 by type: ${JSON.stringify(countBy(clfQuestions)('type'))}`)
+console.log(`CLF-C02 by domain: ${JSON.stringify(countBy(clfQuestions)('domain'))}`)
+for (const { module } of microsoftModules) console.log(`${module.code}: ${module.questions.length} original questions; ${module.exam.questionCount}-question practice simulation.`)
+console.log(`CLF-C02 distribution tolerance: ±${clfDistributionTolerance} percentage points from official domain weights.`)
 console.log(`Validated exam metadata, ${requiredV11Topics.length} v1.1 markers, ${studyPlan.length} budgeted study days, ${scheduledMinutes} planned minutes, ${resources.length} linked resources, ${glossary.length} glossary entries, and ${serviceMap.length} service map rows.`)

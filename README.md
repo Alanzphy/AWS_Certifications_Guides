@@ -1,8 +1,15 @@
-# AWS Certification Study Lab
+# Certification Study Lab
 
-A public, client-only study platform that teaches AWS service distinctions through a concise guide, original practice, error-driven correction, and a final weak-point review. The first active module is **AWS Certified AI Practitioner (AIF-C01), exam guide v1.1 published April 30, 2026**; the catalog is ready for a future **Cloud Practitioner (CLF-C02)** module.
+A public, client-only study platform for AWS and Microsoft certifications: concise guides, original practice, error-driven correction, hands-on Azure labs, and final weak-point review.
 
-> This independent educational project is not affiliated with or endorsed by Amazon Web Services. It contains no exam dumps or copied third-party questions.
+| Module | Study route | App timed practice |
+|---|---|---|
+| AWS Certified Cloud Practitioner (CLF-C02) | Flexible milestones; no exam date supplied | 65 questions, 90 minutes |
+| Microsoft Azure AI Apps and Agents Developer (AI-103) | December 2026 target; exact day not supplied | 50 questions, 120 minutes |
+| Microsoft Security, Compliance, and Identity Fundamentals (SC-900) | December 2026 target; exact day not supplied | 40 questions, 45 minutes |
+| AWS Certified AI Practitioner (AIF-C01) | Existing September 2026 dated plan, exam guide v1.1 | 65 questions, 90 minutes |
+
+> This independent educational project is not affiliated with or endorsed by AWS or Microsoft. It contains no exam dumps or copied third-party questions.
 
 ## Quick start
 
@@ -16,6 +23,14 @@ npm run dev
 The project uses React 19, TypeScript, and Vite 8. The implementation environment runs Node 24.20.0, which satisfies Vite 8's documented engine requirement, so no compatibility downgrade was needed.
 
 ## Learning workflow
+
+The catalog and each flexible plan show an adjustable joint route: prioritize CLF-C02 through mid-November while beginning Python, Foundry and SC-900 identity; increase AI-103 RAG, agents, vision, language and extraction work and SC-900 security/compliance work later in November; complete timed practice and weak-point review before each December exam. If an exam is early in December, move its review earlier. No AWS exam date, exact Microsoft dates, or available study hours were supplied.
+
+One starting example is 3 hours per week for CLF-C02, 1½ for AI-103, and ½ for SC-900; after CLF-C02 or as December approaches, shift to 3½ hours for AI-103 and 1½ for SC-900. These are adjustable starting points, not a readiness guarantee. Reserve longer sessions for simulations and labs.
+
+The AI-103 route covers developing AI apps and agents with Python and Microsoft Foundry, grounded retrieval, vision, text, speech and document extraction. It links [Microsoft's AI-103 course](https://learn.microsoft.com/en-us/training/courses/ai-103t00) and [a hands-on agent and Python lab](https://microsoftlearning.github.io/mslearn-agent-quickstart/Instructions/Labs/01-get-started-in-foundry.html). Use an authorized isolated subscription; estimate costs and delete lab resources. Budgets alert but do not cap charges, and retained resources can still cost money.
+
+### Existing AIF-C01 dated plan
 
 The built-in September 12–27, 2026 plan contains **1,230 planned minutes (20 hours 30 minutes)**. Weekdays stay within 1 hour, weekend work stays within 2 hours, and exam day intentionally uses only 30 minutes:
 
@@ -40,29 +55,30 @@ This adapts the learning loop described by Javier López: maintain a concise gui
 
 ```text
 src/
-├── core/                         # Shared scoring, persistence, and domain types
-├── components/Practice.tsx      # Shared study, diagnostic, exam, retry, and review engine
-└── certifications/aif-c01/      # Certification-specific module data
-    ├── module.ts                 # Exam facts, domains, glossary, service maps
-    ├── guide.ts                  # Weighted guide and v1.1 markers
-    ├── plan.ts                   # Dated workflow and external resource assignments
-    └── questions.ts              # Original tagged practice bank
-scripts/validate-content.ts       # Structural and completeness checks
+├── core/                    # Shared scoring, persistence, and domain types
+├── components/Practice.tsx # Shared study, diagnostic, simulation, retry, and review
+└── certifications/
+    ├── aif-c01/             # AIF guide, dated plan, and practice bank
+    ├── clf-c02/             # CLF guide, flexible milestones, and practice bank
+    ├── ai-103/              # Azure AI apps and agents guide, labs, and practice bank
+    └── sc-900/              # Security, compliance, identity guide and practice bank
 ```
 
-Certification data is separate from shared behavior. The shared practice boundary receives a module's domains, diagnostic IDs, question bank, exam duration, question allocation, and score disclaimer. A later CLF-C02 module can supply those values plus its guide and plan without changing shared practice or scoring logic.
+Each module supplies `module.ts`, `guide.ts`, `plan.ts`, and `questions.ts`. `scripts/validate-content.ts` checks the content. All four modules reuse the same practice and scoring engine; their banks, plans, and score disclaimers remain separate.
 
-Progress is versioned and stored in browser `localStorage`. Invalid or corrupt data falls back safely to an empty state, and storage failures are surfaced without breaking study sessions. There is no backend, authentication, analytics, or cross-device synchronization.
+Progress is versioned and stored in browser `localStorage` with a separate key per certification. The existing AIF-C01 key is retained so its local attempts and dated plan completion are preserved. Clearing progress affects only the selected certification. Invalid or corrupt data falls back safely to an empty state, and storage failures are surfaced without breaking study sessions. There is no backend, authentication, analytics, or cross-device synchronization.
+
+CLF-C02's exam has 65 questions (50 scored and 15 unscored), 90 minutes, and a scaled score from 100 to 1,000 with 700 passing. Its scored-content domains are Cloud Concepts (24%), Security and Compliance (30%), Cloud Technology and Services (34%), and Billing, Pricing, and Support (12%). The suggested app simulation allocation is an approximation for practice sampling; AWS does not publish exact per-domain item counts including unscored questions. CLF study milestones have no dates because no exam date was supplied.
+
+Microsoft's official guides publish **ranges**, not exact domain percentages: [AI-103, skills measured from April 16, 2026](https://learn.microsoft.com/en-us/credentials/certifications/resources/study-guides/ai-103), and [SC-900, skills measured from October 21, 2026](https://learn.microsoft.com/en-us/credentials/certifications/resources/study-guides/sc-900). The app displays those ranges and uses an illustrative allocation for practice. AI-103 objective numbers in the app are local study references, not official Microsoft numbering. Microsoft lists 120 minutes for AI-103 and 45 for SC-900; the app's question counts and choice formats are not a guaranteed replica of either exam. Microsoft may update localized exam versions later than English; check the current guide and exam details before booking.
 
 ## Practice design
 
-- Officially documented formats: single-answer multiple choice, multiple response, ordering, and matching.
-- Immediate explanations in diagnostic, study, and retry modes.
-- Timed mode: 65 questions in 90 minutes, with blueprint-aligned domain selection, navigation, and flags.
-- Domain summaries, answer review, missed/confused retry, and local attempt history.
-- All app results are labeled **raw practice percentages**. They are not AWS scaled-score estimates.
-
-The bank contains 75 distinct, original questions. This intentionally favors an honest smaller bank over padding toward 191 with repetitive templates.
+- Official CLF-C02 formats: multiple choice and multiple response. AIF-C01's bank may also use ordering and matching; those are not represented as CLF-C02 exam formats.
+- AI-103 and SC-900 app questions are single-choice practice. Use the official Microsoft exam sandbox to explore other possible interactions.
+- Immediate explanations in diagnostic, study, and retry modes; timed simulations have navigation, flags, and review after completion.
+- Domain summaries, missed/confused retry, and local attempt history.
+- All app results are **raw practice percentages**, not AWS or Microsoft scaled scores or pass predictions.
 
 ## Verification
 
@@ -74,7 +90,7 @@ npm test -- --run
 npm run build
 ```
 
-The content validator checks question count and structure, the exact 20-question diagnostic, complete dated plan coverage, and external-resource assignments.
+The content validator checks all four modules, their exam metadata, domains, question bank integrity and simulation capacity, guides, resources, service maps, glossaries, and dated or flexible study routes.
 
 ## GitHub Pages deployment
 
@@ -88,11 +104,11 @@ The repository does not attempt to enable Pages remotely. The workflow has only 
 
 ## Data, source, and license policy
 
-- Official AWS exam-guide, revision, in-scope-service, and service documentation links are preserved in the app and are the source of truth.
+- Official AWS and Microsoft exam guides and service documentation are the source of truth; linked practice assessments and sandbox may require sign-in.
 - CloudCertPrep and Tutorials Dojo are linked as external practice resources; their content is neither scraped nor imported.
-- Practice questions and explanations in this repository are original educational material and must never be represented as real AWS exam questions.
-- AWS names and trademarks remain the property of Amazon Web Services, Inc.
-- Source code is licensed under the [MIT License](LICENSE). Original authored study content is available under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) with attribution to this project. Linked third-party and AWS content retain their respective owners' terms.
+- Practice questions and explanations are original educational material and must never be represented as real exam questions.
+- AWS and Microsoft names and trademarks remain the property of their respective owners.
+- Source code is licensed under the [MIT License](LICENSE). Original authored study content is available under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) with attribution to this project. Linked third-party content retains its owners' terms.
 
 ## Accessibility
 

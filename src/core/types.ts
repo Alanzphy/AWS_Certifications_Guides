@@ -5,6 +5,7 @@ export interface Domain {
   id: DomainId
   title: string
   weight: number
+  weightLabel?: string
   objectives: string[]
 }
 
@@ -98,6 +99,24 @@ export interface Resource {
   url: string
   kind: 'Official AWS' | 'Third-party practice'
   assignedDate: string
+  duration: string
+  outcome: string
+}
+
+export interface StudyMilestone {
+  id: string
+  title: string
+  focus: string
+  outcome: string
+  resourceIds: string[]
+  activities: { id: string; type: 'study' | 'practice' | 'full-exam'; durationMinutes: number }[]
+}
+
+export interface OfficialResource {
+  id: string
+  title: string
+  url: string
+  kind: 'Official AWS' | 'Official Microsoft'
   duration: string
   outcome: string
 }
